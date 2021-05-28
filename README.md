@@ -290,3 +290,8 @@ func (s *s3client) ListUploads(marker string) ([]*PendingPart, string, error) {
 	return parts, nextMarker, nil
 }
 ```
+
+### GO开源fuse 比较
+- github.com/billziss-gh/cgofuse 兼容几乎所有操作系统  (juicefs将此作为win挂载)
+- github.com/bazil/fuse  仅兼容linux
+- github.com/hanwen/go-fuse/  (juicefs将此作为linux挂载)
