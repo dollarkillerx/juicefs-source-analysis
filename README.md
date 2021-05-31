@@ -295,3 +295,231 @@ func (s *s3client) ListUploads(marker string) ([]*PendingPart, string, error) {
 - github.com/billziss-gh/cgofuse 兼容几乎所有操作系统  (juicefs将此作为win挂载)
 - github.com/bazil/fuse  仅兼容linux
 - github.com/hanwen/go-fuse/  (juicefs将此作为linux挂载)
+
+
+
+``` 
+// FileSystemBase provides default implementations of the methods in FileSystemInterface.
+// The default implementations are either empty or return -ENOSYS to signal that the
+// file system does not implement a particular operation to the FUSE layer.
+// filesystembase提供fileSystemInterface中的方法的默认实现。
+//默认实现为空或返回 - 以发出信号
+//文件系统未对保险丝层实现特定操作。
+type FileSystemBase struct {
+}
+
+// Init is called when the file system is created.
+// The FileSystemBase implementation does nothing.
+//在创建文件系统时调用init。
+// filesystembase实现没有任何内容。
+func (*FileSystemBase) Init() {
+}
+
+// Destroy is called when the file system is destroyed.
+// The FileSystemBase implementation does nothing.
+//在文件系统被销毁时调用销毁。
+// filesystembase实现没有任何内容。
+func (*FileSystemBase) Destroy() {
+}
+
+// Statfs gets file system statistics.
+// The FileSystemBase implementation returns -ENOSYS.
+// statfs获取文件系统统计信息。
+// filesystembase实现返回-enosys。
+func (*FileSystemBase) Statfs(path string, stat *Statfs_t) int {
+	return -ENOSYS
+}
+
+// Mknod creates a file node.
+// The FileSystemBase implementation returns -ENOSYS.
+// mknod创建一个文件节点。
+// filesystembase实现返回-enosys。
+func (*FileSystemBase) Mknod(path string, mode uint32, dev uint64) int {
+	return -ENOSYS
+}
+
+// Mkdir creates a directory.
+// The FileSystemBase implementation returns -ENOSYS.
+// mkdir创建一个目录。
+// filesystembase实现返回-enosys。
+func (*FileSystemBase) Mkdir(path string, mode uint32) int {
+	return -ENOSYS
+}
+
+// Unlink removes a file.
+// The FileSystemBase implementation returns -ENOSYS.
+//  Unlink 删除文件。
+// filesystembase实现返回-enosys。
+func (*FileSystemBase) Unlink(path string) int {
+	return -ENOSYS
+}
+
+// Rmdir removes a directory. 删除目录。
+// The FileSystemBase implementation returns -ENOSYS. FileSystemBase实现返回-enosys。
+func (*FileSystemBase) Rmdir(path string) int {
+	return -ENOSYS
+}
+
+// Link creates a hard link to a file. 创建一个文件的硬链接。
+// The FileSystemBase implementation returns -ENOSYS. FileSystemBase实现返回-enosys。
+func (*FileSystemBase) Link(oldpath string, newpath string) int {
+	return -ENOSYS
+}
+
+// Symlink creates a symbolic link. 创建一个软链接。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Symlink(target string, newpath string) int {
+	return -ENOSYS
+}
+
+// Readlink reads the target of a symbolic link. 读取软链接的目标。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Readlink(path string) (int, string) {
+	return -ENOSYS, ""
+}
+
+// Rename renames a file. 重命名文件。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Rename(oldpath string, newpath string) int {
+	return -ENOSYS
+}
+
+// Chmod changes the permission bits of a file. 更改文件的权限位。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Chmod(path string, mode uint32) int {
+	return -ENOSYS
+}
+
+// Chown changes the owner and group of a file. 更改文件的所有者和组。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Chown(path string, uid uint32, gid uint32) int {
+	return -ENOSYS
+}
+
+// Utimens changes the access and modification times of a file. 更改文件的访问和修改时间。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Utimens(path string, tmsp []Timespec) int {
+	return -ENOSYS
+}
+ 
+// Access checks file access permissions. 检查文件访问权限。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Access(path string, mask uint32) int {
+	return -ENOSYS
+}
+
+// Create creates and opens a file. 创建并打开文件。
+// The flags are a combination of the fuse.O_* constants.
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Create(path string, flags int, mode uint32) (int, uint64) {
+	return -ENOSYS, ^uint64(0)
+}
+
+// Open opens a file. 打开文件。
+// The flags are a combination of the fuse.O_* constants.
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Open(path string, flags int) (int, uint64) {
+	return -ENOSYS, ^uint64(0)
+}
+
+// Getattr gets file attributes. 获取文件属性。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Getattr(path string, stat *Stat_t, fh uint64) int {
+	return -ENOSYS
+}
+
+// Truncate changes the size of a file. 更改文件的大小。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Truncate(path string, size int64, fh uint64) int {
+	return -ENOSYS
+}
+
+// Read reads data from a file. 从文件中读取数据。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Read(path string, buff []byte, ofst int64, fh uint64) int {
+	return -ENOSYS
+}
+
+// Write writes data to a file. 将数据写入文件。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Write(path string, buff []byte, ofst int64, fh uint64) int {
+	return -ENOSYS
+}
+
+// Flush flushes cached file data. 刷新缓存的文件数据。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Flush(path string, fh uint64) int {
+	return -ENOSYS
+}
+
+// Release closes an open file. 关闭一个打开的文件。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Release(path string, fh uint64) int {
+	return -ENOSYS
+}
+
+// Fsync synchronizes file contents. 同步文件内容。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Fsync(path string, datasync bool, fh uint64) int {
+	return -ENOSYS
+}
+
+/*
+// Lock performs a file locking operation. 执行文件锁定操作。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Lock(path string, cmd int, lock *Lock_t, fh uint64) int {
+	return -ENOSYS
+}
+*/
+
+// Opendir opens a directory. 打开一个目录。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Opendir(path string) (int, uint64) {
+	return -ENOSYS, ^uint64(0)
+}
+
+// Readdir reads a directory. 读取一个目录。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Readdir(path string,
+	fill func(name string, stat *Stat_t, ofst int64) bool,
+	ofst int64,
+	fh uint64) int {
+	return -ENOSYS
+}
+
+// Releasedir closes an open directory. 关闭一个打开的目录。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Releasedir(path string, fh uint64) int {
+	return -ENOSYS
+}
+
+// Fsyncdir synchronizes directory contents. 同步目录内容。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Fsyncdir(path string, datasync bool, fh uint64) int {
+	return -ENOSYS
+}
+
+// Setxattr sets extended attributes. 设置扩展属性。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Setxattr(path string, name string, value []byte, flags int) int {
+	return -ENOSYS
+}
+
+// Getxattr gets extended attributes. 获取扩展属性。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Getxattr(path string, name string) (int, []byte) {
+	return -ENOSYS, nil
+}
+
+// Removexattr removes extended attributes. 删除扩展属性。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Removexattr(path string, name string) int {
+	return -ENOSYS
+}
+
+// Listxattr lists extended attributes. 列出扩展属性。
+// The FileSystemBase implementation returns -ENOSYS.
+func (*FileSystemBase) Listxattr(path string, fill func(name string) bool) int {
+	return -ENOSYS
+}
+```
