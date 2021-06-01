@@ -13,7 +13,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -32,7 +34,7 @@ func split(path string) []string {
 }
 
 func resize(slice []byte, size int64, zeroinit bool) []byte {
-	const allocunit = 64 * 1024
+	const allocunit = 64 * 1024 // 分配
 	allocsize := (size + allocunit - 1) / allocunit * allocunit
 	if cap(slice) != int(allocsize) {
 		var newslice []byte
@@ -66,19 +68,22 @@ type node_t struct {
 
 func newNode(dev uint64, ino uint64, mode uint32, uid uint32, gid uint32) *node_t {
 	tmsp := fuse.Now()
+	// Stat_t 包含文件元数据信息。
+	// 这个结构类似于 POSIX struct stat。
+	// 并非所有 FUSE 实现都支持所有字段。
 	self := node_t{
 		fuse.Stat_t{
-			Dev:      dev,
-			Ino:      ino,
-			Mode:     mode,
-			Nlink:    1,
-			Uid:      uid,
-			Gid:      gid,
-			Atim:     tmsp,
-			Mtim:     tmsp,
-			Ctim:     tmsp,
-			Birthtim: tmsp,
-			Flags:    0,
+			Dev:      dev,  // 包含文件的设备的设备 ID。 [忽略]
+			Ino:      ino,  // 文件序列号。 [忽略除非给出了 use_ino 挂载选项。]
+			Mode:     mode, // 文件模式。
+			Nlink:    1,    // 文件的硬链接数。
+			Uid:      uid,  // 文件的用户 ID。
+			Gid:      gid,  // 文件的组 ID。
+			Atim:     tmsp, // 上次数据访问时间戳。
+			Mtim:     tmsp, // 上次数据修改时间戳。
+			Ctim:     tmsp, // 上次文件状态更改时间戳。
+			Birthtim: tmsp, // 文件创建（出生）时间戳。 [仅限 OSX 和 Windows]
+			Flags:    0,    // BSD 标志 (UF_*)。 [仅限 OSX 和 Windows]
 		},
 		nil,
 		nil,
@@ -95,13 +100,15 @@ type Memfs struct {
 	lock    sync.Mutex
 	ino     uint64
 	root    *node_t
-	openmap map[uint64]*node_t
+	openmap map[uint64]*node_t // 打开的文件
 }
 
 // 创建一个文件节点。
 func (self *Memfs) Mknod(path string, mode uint32, dev uint64) (errc int) {
 	defer trace(path, mode, dev)(&errc)
 	defer self.synchronize()()
+
+	log.Printf("Mknod:  path: %s mode: %d dev: %d\n", path, mode, dev)
 	return self.makeNode(path, mode, dev, nil)
 }
 
@@ -109,6 +116,8 @@ func (self *Memfs) Mknod(path string, mode uint32, dev uint64) (errc int) {
 func (self *Memfs) Mkdir(path string, mode uint32) (errc int) {
 	defer trace(path, mode)(&errc)
 	defer self.synchronize()()
+
+	log.Printf("Mkdir:  path: %s mode: %d \n", path, mode)
 	return self.makeNode(path, fuse.S_IFDIR|(mode&07777), 0, nil)
 }
 
@@ -116,6 +125,8 @@ func (self *Memfs) Mkdir(path string, mode uint32) (errc int) {
 func (self *Memfs) Unlink(path string) (errc int) {
 	defer trace(path)(&errc)
 	defer self.synchronize()()
+
+	log.Printf("Unlink:  path: %s \n", path)
 	return self.removeNode(path, false)
 }
 
@@ -123,6 +134,8 @@ func (self *Memfs) Unlink(path string) (errc int) {
 func (self *Memfs) Rmdir(path string) (errc int) {
 	defer trace(path)(&errc)
 	defer self.synchronize()()
+
+	log.Printf("Rmdir:  path: %s \n", path)
 	return self.removeNode(path, true)
 }
 
@@ -147,6 +160,9 @@ func (self *Memfs) Link(oldpath string, newpath string) (errc int) {
 	oldnode.stat.Ctim = tmsp
 	newprnt.stat.Ctim = tmsp
 	newprnt.stat.Mtim = tmsp
+
+	log.Printf("Link:  oldpath: %s newpath: %s\n", oldnode, newpath)
+
 	return 0
 }
 
@@ -154,6 +170,8 @@ func (self *Memfs) Link(oldpath string, newpath string) (errc int) {
 func (self *Memfs) Symlink(target string, newpath string) (errc int) {
 	defer trace(target, newpath)(&errc)
 	defer self.synchronize()()
+
+	log.Printf("Symlink:  target: %s newpath: %s\n", target, newpath)
 	return self.makeNode(newpath, fuse.S_IFLNK|00777, 0, []byte(target))
 }
 
@@ -168,6 +186,8 @@ func (self *Memfs) Readlink(path string) (errc int, target string) {
 	if fuse.S_IFLNK != node.stat.Mode&fuse.S_IFMT {
 		return -fuse.EINVAL, ""
 	}
+
+	log.Printf("Readlink:  path: %s \n", path)
 	return 0, string(node.data)
 }
 
@@ -198,6 +218,8 @@ func (self *Memfs) Rename(oldpath string, newpath string) (errc int) {
 	}
 	delete(oldprnt.chld, oldname)
 	newprnt.chld[newname] = oldnode
+
+	log.Printf("Rename:  oldpath: %s newpath: %s \n", oldpath, newpath)
 	return 0
 }
 
@@ -211,6 +233,8 @@ func (self *Memfs) Chmod(path string, mode uint32) (errc int) {
 	}
 	node.stat.Mode = (node.stat.Mode & fuse.S_IFMT) | mode&07777
 	node.stat.Ctim = fuse.Now()
+
+	log.Printf("Chmod:  path: %s mode: %d \n", path, mode)
 	return 0
 }
 
@@ -229,6 +253,8 @@ func (self *Memfs) Chown(path string, uid uint32, gid uint32) (errc int) {
 		node.stat.Gid = gid
 	}
 	node.stat.Ctim = fuse.Now()
+
+	log.Printf("Chmod:  path: %s uid: %d gid： %d \n", path, uid, gid)
 	return 0
 }
 
@@ -248,6 +274,9 @@ func (self *Memfs) Utimens(path string, tmsp []fuse.Timespec) (errc int) {
 	}
 	node.stat.Atim = tmsp[0]
 	node.stat.Mtim = tmsp[1]
+
+	marshal, _ := json.Marshal(tmsp)
+	log.Printf("Utimens:  path: %s tmsp: %s \n", path, string(marshal))
 	return 0
 }
 
@@ -255,6 +284,8 @@ func (self *Memfs) Utimens(path string, tmsp []fuse.Timespec) (errc int) {
 func (self *Memfs) Open(path string, flags int) (errc int, fh uint64) {
 	defer trace(path, flags)(&errc, &fh)
 	defer self.synchronize()()
+
+	log.Printf("Open:  path: %s flags: %d \n", path, flags)
 	return self.openNode(path, false)
 }
 
@@ -267,6 +298,15 @@ func (self *Memfs) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int)
 		return -fuse.ENOENT
 	}
 	*stat = node.stat
+
+	mp := ""
+	if stat != nil {
+		marshal, err := json.Marshal(*stat)
+		if err == nil {
+			mp = string(marshal)
+		}
+	}
+	log.Printf("Getattr:  path: %s stat: %s fh: %d \n", path, mp, fh)
 	return 0
 }
 
@@ -283,6 +323,8 @@ func (self *Memfs) Truncate(path string, size int64, fh uint64) (errc int) {
 	tmsp := fuse.Now()
 	node.stat.Ctim = tmsp
 	node.stat.Mtim = tmsp
+
+	log.Printf("Truncate:  path: %s size: %d fh: %d \n", path, size, fh)
 	return 0
 }
 
@@ -303,6 +345,8 @@ func (self *Memfs) Read(path string, buff []byte, ofst int64, fh uint64) (n int)
 	}
 	n = copy(buff, node.data[ofst:endofst])
 	node.stat.Atim = fuse.Now()
+
+	log.Printf("Read: path: %s ofst: %d fh: %d \n", path, ofst, fh)
 	return
 }
 
@@ -323,6 +367,8 @@ func (self *Memfs) Write(path string, buff []byte, ofst int64, fh uint64) (n int
 	tmsp := fuse.Now()
 	node.stat.Ctim = tmsp
 	node.stat.Mtim = tmsp
+
+	log.Printf("Write: path: %s ofst: %d fh: %d \n", path, ofst, fh)
 	return
 }
 
@@ -330,6 +376,8 @@ func (self *Memfs) Write(path string, buff []byte, ofst int64, fh uint64) (n int
 func (self *Memfs) Release(path string, fh uint64) (errc int) {
 	defer trace(path, fh)(&errc)
 	defer self.synchronize()()
+
+	log.Printf("Release: path: %s fh: %d \n", path, fh)
 	return self.closeNode(fh)
 }
 
@@ -337,6 +385,8 @@ func (self *Memfs) Release(path string, fh uint64) (errc int) {
 func (self *Memfs) Opendir(path string) (errc int, fh uint64) {
 	defer trace(path)(&errc, &fh)
 	defer self.synchronize()()
+
+	log.Printf("Opendir: path: %s \n", path)
 	return self.openNode(path, true)
 }
 
@@ -355,6 +405,8 @@ func (self *Memfs) Readdir(path string,
 			break
 		}
 	}
+
+	log.Printf("Readdir: path: %s ofst: %d fh: %d \n", path, ofst, fh)
 	return 0
 }
 
@@ -362,6 +414,8 @@ func (self *Memfs) Readdir(path string,
 func (self *Memfs) Releasedir(path string, fh uint64) (errc int) {
 	defer trace(path, fh)(&errc)
 	defer self.synchronize()()
+
+	log.Printf("Releasedir: path: %s fh: %d \n", path, fh)
 	return self.closeNode(fh)
 }
 
@@ -391,6 +445,8 @@ func (self *Memfs) Setxattr(path string, name string, value []byte, flags int) (
 		node.xatr = map[string][]byte{}
 	}
 	node.xatr[name] = xatr
+
+	log.Printf("Setxattr: path: %s name: %s flags: %d \n", path, name, flags)
 	return 0
 }
 
@@ -409,6 +465,8 @@ func (self *Memfs) Getxattr(path string, name string) (errc int, xatr []byte) {
 	if !ok {
 		return -fuse.ENOATTR, nil
 	}
+
+	log.Printf("Getxattr: path: %s name: %s \n", path, name)
 	return 0, xatr
 }
 
@@ -427,6 +485,9 @@ func (self *Memfs) Removexattr(path string, name string) (errc int) {
 		return -fuse.ENOATTR
 	}
 	delete(node.xatr, name)
+
+
+	log.Printf("Removexattr: path: %s name: %s \n", path, name)
 	return 0
 }
 
@@ -443,6 +504,8 @@ func (self *Memfs) Listxattr(path string, fill func(name string) bool) (errc int
 			return -fuse.ERANGE
 		}
 	}
+
+	log.Printf("Listxattr: path: %s \n", path)
 	return 0
 }
 
@@ -458,6 +521,9 @@ func (self *Memfs) Chflags(path string, flags uint32) (errc int) {
 	}
 	node.stat.Flags = flags
 	node.stat.Ctim = fuse.Now()
+
+
+	log.Printf("Chflags: path: %s flags: %d \n", path, flags)
 	return 0
 }
 
@@ -473,6 +539,8 @@ func (self *Memfs) Setcrtime(path string, tmsp fuse.Timespec) (errc int) {
 	}
 	node.stat.Birthtim = tmsp
 	node.stat.Ctim = fuse.Now()
+
+	log.Printf("Setcrtime: path: %s tmsp: %d \n", path, tmsp.Sec)
 	return 0
 }
 
@@ -487,6 +555,8 @@ func (self *Memfs) Setchgtime(path string, tmsp fuse.Timespec) (errc int) {
 		return -fuse.ENOENT
 	}
 	node.stat.Ctim = tmsp
+
+	log.Printf("Setchgtime: path: %s tmsp: %d \n", path, tmsp.Sec)
 	return 0
 }
 
@@ -615,6 +685,8 @@ var _ fuse.FileSystemSetcrtime = (*Memfs)(nil)
 var _ fuse.FileSystemSetchgtime = (*Memfs)(nil)
 
 func main() {
+	log.SetFlags(log.Llongfile | log.LstdFlags)
+
 	memfs := NewMemfs()
 	host := fuse.NewFileSystemHost(memfs)
 	host.SetCapReaddirPlus(true)
